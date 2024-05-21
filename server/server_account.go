@@ -102,16 +102,6 @@ func (s *Server) handleAccountGet(w http.ResponseWriter, r *http.Request, v *vis
 				Name: u.Tier.Name,
 			}
 		}
-		if u.Billing.StripeCustomerID != "" {
-			response.Billing = &apiAccountBilling{
-				Customer:     true,
-				Subscription: u.Billing.StripeSubscriptionID != "",
-				Status:       string(u.Billing.StripeSubscriptionStatus),
-				Interval:     string(u.Billing.StripeSubscriptionInterval),
-				PaidUntil:    u.Billing.StripeSubscriptionPaidUntil.Unix(),
-				CancelAt:     u.Billing.StripeSubscriptionCancelAt.Unix(),
-			}
-		}
 		if s.config.EnableReservations {
 			reservations, err := s.userManager.Reservations(u.Name)
 			if err != nil {
@@ -147,15 +137,6 @@ func (s *Server) handleAccountGet(w http.ResponseWriter, r *http.Request, v *vis
 				})
 			}
 		}
-		if s.config.TwilioAccount != "" {
-			phoneNumbers, err := s.userManager.PhoneNumbers(u.ID)
-			if err != nil {
-				return err
-			}
-			if len(phoneNumbers) > 0 {
-				response.PhoneNumbers = phoneNumbers
-			}
-		}
 	} else {
 		response.Username = user.Everyone
 		response.Role = string(user.RoleAnonymous)
@@ -173,17 +154,6 @@ func (s *Server) handleAccountDelete(w http.ResponseWriter, r *http.Request, v *
 	u := v.User()
 	if _, err := s.userManager.Authenticate(u.Name, req.Password); err != nil {
 		return errHTTPBadRequestIncorrectPasswordConfirmation
-	}
-	if s.webPush != nil && u.ID != "" {
-		if err := s.webPush.RemoveSubscriptionsByUserID(u.ID); err != nil {
-			logvr(v, r).Err(err).Warn("Error removing web push subscriptions for %s", u.Name)
-		}
-	}
-	if u.Billing.StripeSubscriptionID != "" {
-		logvr(v, r).Tag(tagStripe).Info("Canceling billing subscription for user %s", u.Name)
-		if _, err := s.stripe.CancelSubscription(u.Billing.StripeSubscriptionID); err != nil {
-			return err
-		}
 	}
 	if err := s.maybeRemoveMessagesAndExcessReservations(r, v, u, 0); err != nil {
 		return err
@@ -532,72 +502,6 @@ func (s *Server) maybeRemoveMessagesAndExcessReservations(r *http.Request, v *vi
 	}
 	go s.pruneMessages()
 	return nil
-}
-
-func (s *Server) handleAccountPhoneNumberVerify(w http.ResponseWriter, r *http.Request, v *visitor) error {
-	u := v.User()
-	req, err := readJSONWithLimit[apiAccountPhoneNumberVerifyRequest](r.Body, jsonBodyBytesLimit, false)
-	if err != nil {
-		return err
-	} else if !phoneNumberRegex.MatchString(req.Number) {
-		return errHTTPBadRequestPhoneNumberInvalid
-	} else if req.Channel != "sms" && req.Channel != "call" {
-		return errHTTPBadRequestPhoneNumberVerifyChannelInvalid
-	}
-	// Check user is allowed to add phone numbers
-	if u == nil || (u.IsUser() && u.Tier == nil) {
-		return errHTTPUnauthorized
-	} else if u.IsUser() && u.Tier.CallLimit == 0 {
-		return errHTTPUnauthorized
-	}
-	// Check if phone number exists
-	phoneNumbers, err := s.userManager.PhoneNumbers(u.ID)
-	if err != nil {
-		return err
-	} else if util.Contains(phoneNumbers, req.Number) {
-		return errHTTPConflictPhoneNumberExists
-	}
-	// Actually add the unverified number, and send verification
-	logvr(v, r).Tag(tagAccount).Field("phone_number", req.Number).Debug("Sending phone number verification")
-	if err := s.verifyPhoneNumber(v, r, req.Number, req.Channel); err != nil {
-		return err
-	}
-	return s.writeJSON(w, newSuccessResponse())
-}
-
-func (s *Server) handleAccountPhoneNumberAdd(w http.ResponseWriter, r *http.Request, v *visitor) error {
-	u := v.User()
-	req, err := readJSONWithLimit[apiAccountPhoneNumberAddRequest](r.Body, jsonBodyBytesLimit, false)
-	if err != nil {
-		return err
-	}
-	if !phoneNumberRegex.MatchString(req.Number) {
-		return errHTTPBadRequestPhoneNumberInvalid
-	}
-	if err := s.verifyPhoneNumberCheck(v, r, req.Number, req.Code); err != nil {
-		return err
-	}
-	logvr(v, r).Tag(tagAccount).Field("phone_number", req.Number).Debug("Adding phone number as verified")
-	if err := s.userManager.AddPhoneNumber(u.ID, req.Number); err != nil {
-		return err
-	}
-	return s.writeJSON(w, newSuccessResponse())
-}
-
-func (s *Server) handleAccountPhoneNumberDelete(w http.ResponseWriter, r *http.Request, v *visitor) error {
-	u := v.User()
-	req, err := readJSONWithLimit[apiAccountPhoneNumberAddRequest](r.Body, jsonBodyBytesLimit, false)
-	if err != nil {
-		return err
-	}
-	if !phoneNumberRegex.MatchString(req.Number) {
-		return errHTTPBadRequestPhoneNumberInvalid
-	}
-	logvr(v, r).Tag(tagAccount).Field("phone_number", req.Number).Debug("Deleting phone number")
-	if err := s.userManager.RemovePhoneNumber(u.ID, req.Number); err != nil {
-		return err
-	}
-	return s.writeJSON(w, newSuccessResponse())
 }
 
 // publishSyncEventAsync kicks of a Go routine to publish a sync message to the user's sync topic

@@ -15,7 +15,6 @@ func (s *Server) execManager() {
 	s.pruneTokens()
 	s.pruneAttachments()
 	s.pruneMessages()
-	s.pruneAndNotifyWebPushSubscriptions()
 
 	// Message count per topic
 	var messagesCached int
@@ -56,13 +55,7 @@ func (s *Server) execManager() {
 
 	// Mail stats
 	var receivedMailTotal, receivedMailSuccess, receivedMailFailure int64
-	if s.smtpServerBackend != nil {
-		receivedMailTotal, receivedMailSuccess, receivedMailFailure = s.smtpServerBackend.Counts()
-	}
 	var sentMailTotal, sentMailSuccess, sentMailFailure int64
-	if s.smtpSender != nil {
-		sentMailTotal, sentMailSuccess, sentMailFailure = s.smtpSender.Counts()
-	}
 
 	// Users
 	var usersCount int64

@@ -5,7 +5,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"github.com/stripe/stripe-go/v74"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 	"heckel.io/ntfy/v2/log"
@@ -37,12 +36,8 @@ var flagsServe = append(
 	&cli.StringFlag{Name: "config", Aliases: []string{"c"}, EnvVars: []string{"NTFY_CONFIG_FILE"}, Value: defaultServerConfigFile, Usage: "config file"},
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "base-url", Aliases: []string{"base_url", "B"}, EnvVars: []string{"NTFY_BASE_URL"}, Usage: "externally visible base URL for this host (e.g. https://ntfy.sh)"}),
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "listen-http", Aliases: []string{"listen_http", "l"}, EnvVars: []string{"NTFY_LISTEN_HTTP"}, Value: server.DefaultListenHTTP, Usage: "ip:port used as HTTP listen address"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "listen-https", Aliases: []string{"listen_https", "L"}, EnvVars: []string{"NTFY_LISTEN_HTTPS"}, Usage: "ip:port used as HTTPS listen address"}),
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "listen-unix", Aliases: []string{"listen_unix", "U"}, EnvVars: []string{"NTFY_LISTEN_UNIX"}, Usage: "listen on unix socket path"}),
 	altsrc.NewIntFlag(&cli.IntFlag{Name: "listen-unix-mode", Aliases: []string{"listen_unix_mode"}, EnvVars: []string{"NTFY_LISTEN_UNIX_MODE"}, DefaultText: "system default", Usage: "file permissions of unix socket, e.g. 0700"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "key-file", Aliases: []string{"key_file", "K"}, EnvVars: []string{"NTFY_KEY_FILE"}, Usage: "private key file, if listen-https is set"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "cert-file", Aliases: []string{"cert_file", "E"}, EnvVars: []string{"NTFY_CERT_FILE"}, Usage: "certificate file, if listen-https is set"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "firebase-key-file", Aliases: []string{"firebase_key_file", "F"}, EnvVars: []string{"NTFY_FIREBASE_KEY_FILE"}, Usage: "Firebase credentials file; if set additionally publish to FCM topic"}),
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "cache-file", Aliases: []string{"cache_file", "C"}, EnvVars: []string{"NTFY_CACHE_FILE"}, Usage: "cache file used for message caching"}),
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "cache-duration", Aliases: []string{"cache_duration", "b"}, EnvVars: []string{"NTFY_CACHE_DURATION"}, Value: util.FormatDuration(server.DefaultCacheDuration), Usage: "buffer messages for this time to allow `since` requests"}),
 	altsrc.NewIntFlag(&cli.IntFlag{Name: "cache-batch-size", Aliases: []string{"cache_batch_size"}, EnvVars: []string{"NTFY_BATCH_SIZE"}, Usage: "max size of messages to batch together when writing to message cache (if zero, writes are synchronous)"}),
@@ -64,17 +59,6 @@ var flagsServe = append(
 	altsrc.NewBoolFlag(&cli.BoolFlag{Name: "enable-reservations", Aliases: []string{"enable_reservations"}, EnvVars: []string{"NTFY_ENABLE_RESERVATIONS"}, Value: false, Usage: "allows users to reserve topics (if their tier allows it)"}),
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "upstream-base-url", Aliases: []string{"upstream_base_url"}, EnvVars: []string{"NTFY_UPSTREAM_BASE_URL"}, Value: "", Usage: "forward poll request to an upstream server, this is needed for iOS push notifications for self-hosted servers"}),
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "upstream-access-token", Aliases: []string{"upstream_access_token"}, EnvVars: []string{"NTFY_UPSTREAM_ACCESS_TOKEN"}, Value: "", Usage: "access token to use for the upstream server; needed only if upstream rate limits are exceeded or upstream server requires auth"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "smtp-sender-addr", Aliases: []string{"smtp_sender_addr"}, EnvVars: []string{"NTFY_SMTP_SENDER_ADDR"}, Usage: "SMTP server address (host:port) for outgoing emails"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "smtp-sender-user", Aliases: []string{"smtp_sender_user"}, EnvVars: []string{"NTFY_SMTP_SENDER_USER"}, Usage: "SMTP user (if e-mail sending is enabled)"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "smtp-sender-pass", Aliases: []string{"smtp_sender_pass"}, EnvVars: []string{"NTFY_SMTP_SENDER_PASS"}, Usage: "SMTP password (if e-mail sending is enabled)"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "smtp-sender-from", Aliases: []string{"smtp_sender_from"}, EnvVars: []string{"NTFY_SMTP_SENDER_FROM"}, Usage: "SMTP sender address (if e-mail sending is enabled)"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "smtp-server-listen", Aliases: []string{"smtp_server_listen"}, EnvVars: []string{"NTFY_SMTP_SERVER_LISTEN"}, Usage: "SMTP server address (ip:port) for incoming emails, e.g. :25"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "smtp-server-domain", Aliases: []string{"smtp_server_domain"}, EnvVars: []string{"NTFY_SMTP_SERVER_DOMAIN"}, Usage: "SMTP domain for incoming e-mail, e.g. ntfy.sh"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "smtp-server-addr-prefix", Aliases: []string{"smtp_server_addr_prefix"}, EnvVars: []string{"NTFY_SMTP_SERVER_ADDR_PREFIX"}, Usage: "SMTP email address prefix for topics to prevent spam (e.g. 'ntfy-')"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "twilio-account", Aliases: []string{"twilio_account"}, EnvVars: []string{"NTFY_TWILIO_ACCOUNT"}, Usage: "Twilio account SID, used for phone calls, e.g. AC123..."}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "twilio-auth-token", Aliases: []string{"twilio_auth_token"}, EnvVars: []string{"NTFY_TWILIO_AUTH_TOKEN"}, Usage: "Twilio auth token"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "twilio-phone-number", Aliases: []string{"twilio_phone_number"}, EnvVars: []string{"NTFY_TWILIO_PHONE_NUMBER"}, Usage: "Twilio number to use for outgoing calls"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "twilio-verify-service", Aliases: []string{"twilio_verify_service"}, EnvVars: []string{"NTFY_TWILIO_VERIFY_SERVICE"}, Usage: "Twilio Verify service ID, used for phone number verification"}),
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "message-size-limit", Aliases: []string{"message_size_limit"}, EnvVars: []string{"NTFY_MESSAGE_SIZE_LIMIT"}, Value: util.FormatSize(server.DefaultMessageSizeLimit), Usage: "size limit for the message (see docs for limitations)"}),
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "message-delay-limit", Aliases: []string{"message_delay_limit"}, EnvVars: []string{"NTFY_MESSAGE_DELAY_LIMIT"}, Value: util.FormatDuration(server.DefaultMessageDelayMax), Usage: "max duration a message can be scheduled into the future"}),
 	altsrc.NewIntFlag(&cli.IntFlag{Name: "global-topic-limit", Aliases: []string{"global_topic_limit", "T"}, EnvVars: []string{"NTFY_GLOBAL_TOPIC_LIMIT"}, Value: server.DefaultTotalTopicLimit, Usage: "total number of topics allowed"}),
@@ -89,17 +73,6 @@ var flagsServe = append(
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "visitor-email-limit-replenish", Aliases: []string{"visitor_email_limit_replenish"}, EnvVars: []string{"NTFY_VISITOR_EMAIL_LIMIT_REPLENISH"}, Value: util.FormatDuration(server.DefaultVisitorEmailLimitReplenish), Usage: "interval at which burst limit is replenished (one per x)"}),
 	altsrc.NewBoolFlag(&cli.BoolFlag{Name: "visitor-subscriber-rate-limiting", Aliases: []string{"visitor_subscriber_rate_limiting"}, EnvVars: []string{"NTFY_VISITOR_SUBSCRIBER_RATE_LIMITING"}, Value: false, Usage: "enables subscriber-based rate limiting"}),
 	altsrc.NewBoolFlag(&cli.BoolFlag{Name: "behind-proxy", Aliases: []string{"behind_proxy", "P"}, EnvVars: []string{"NTFY_BEHIND_PROXY"}, Value: false, Usage: "if set, use X-Forwarded-For header to determine visitor IP address (for rate limiting)"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "stripe-secret-key", Aliases: []string{"stripe_secret_key"}, EnvVars: []string{"NTFY_STRIPE_SECRET_KEY"}, Value: "", Usage: "key used for the Stripe API communication, this enables payments"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "stripe-webhook-key", Aliases: []string{"stripe_webhook_key"}, EnvVars: []string{"NTFY_STRIPE_WEBHOOK_KEY"}, Value: "", Usage: "key required to validate the authenticity of incoming webhooks from Stripe"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "billing-contact", Aliases: []string{"billing_contact"}, EnvVars: []string{"NTFY_BILLING_CONTACT"}, Value: "", Usage: "e-mail or website to display in upgrade dialog (only if payments are enabled)"}),
-	altsrc.NewBoolFlag(&cli.BoolFlag{Name: "enable-metrics", Aliases: []string{"enable_metrics"}, EnvVars: []string{"NTFY_ENABLE_METRICS"}, Value: false, Usage: "if set, Prometheus metrics are exposed via the /metrics endpoint"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "metrics-listen-http", Aliases: []string{"metrics_listen_http"}, EnvVars: []string{"NTFY_METRICS_LISTEN_HTTP"}, Usage: "ip:port used to expose the metrics endpoint (implicitly enables metrics)"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "profile-listen-http", Aliases: []string{"profile_listen_http"}, EnvVars: []string{"NTFY_PROFILE_LISTEN_HTTP"}, Usage: "ip:port used to expose the profiling endpoints (implicitly enables profiling)"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "web-push-public-key", Aliases: []string{"web_push_public_key"}, EnvVars: []string{"NTFY_WEB_PUSH_PUBLIC_KEY"}, Usage: "public key used for web push notifications"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "web-push-private-key", Aliases: []string{"web_push_private_key"}, EnvVars: []string{"NTFY_WEB_PUSH_PRIVATE_KEY"}, Usage: "private key used for web push notifications"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "web-push-file", Aliases: []string{"web_push_file"}, EnvVars: []string{"NTFY_WEB_PUSH_FILE"}, Usage: "file used to store web push subscriptions"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "web-push-email-address", Aliases: []string{"web_push_email_address"}, EnvVars: []string{"NTFY_WEB_PUSH_EMAIL_ADDRESS"}, Usage: "e-mail address of sender, required to use browser push services"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "web-push-startup-queries", Aliases: []string{"web_push_startup_queries"}, EnvVars: []string{"NTFY_WEB_PUSH_STARTUP_QUERIES"}, Usage: "queries run when the web push database is initialized"}),
 )
 
 var cmdServe = &cli.Command{
@@ -129,17 +102,8 @@ func execServe(c *cli.Context) error {
 	config := c.String("config")
 	baseURL := strings.TrimSuffix(c.String("base-url"), "/")
 	listenHTTP := c.String("listen-http")
-	listenHTTPS := c.String("listen-https")
 	listenUnix := c.String("listen-unix")
 	listenUnixMode := c.Int("listen-unix-mode")
-	keyFile := c.String("key-file")
-	certFile := c.String("cert-file")
-	firebaseKeyFile := c.String("firebase-key-file")
-	webPushPrivateKey := c.String("web-push-private-key")
-	webPushPublicKey := c.String("web-push-public-key")
-	webPushFile := c.String("web-push-file")
-	webPushEmailAddress := c.String("web-push-email-address")
-	webPushStartupQueries := c.String("web-push-startup-queries")
 	cacheFile := c.String("cache-file")
 	cacheDurationStr := c.String("cache-duration")
 	cacheStartupQueries := c.String("cache-startup-queries")
@@ -161,17 +125,6 @@ func execServe(c *cli.Context) error {
 	enableReservations := c.Bool("enable-reservations")
 	upstreamBaseURL := c.String("upstream-base-url")
 	upstreamAccessToken := c.String("upstream-access-token")
-	smtpSenderAddr := c.String("smtp-sender-addr")
-	smtpSenderUser := c.String("smtp-sender-user")
-	smtpSenderPass := c.String("smtp-sender-pass")
-	smtpSenderFrom := c.String("smtp-sender-from")
-	smtpServerListen := c.String("smtp-server-listen")
-	smtpServerDomain := c.String("smtp-server-domain")
-	smtpServerAddrPrefix := c.String("smtp-server-addr-prefix")
-	twilioAccount := c.String("twilio-account")
-	twilioAuthToken := c.String("twilio-auth-token")
-	twilioPhoneNumber := c.String("twilio-phone-number")
-	twilioVerifyService := c.String("twilio-verify-service")
 	messageSizeLimitStr := c.String("message-size-limit")
 	messageDelayLimitStr := c.String("message-delay-limit")
 	totalTopicLimit := c.Int("global-topic-limit")
@@ -186,12 +139,6 @@ func execServe(c *cli.Context) error {
 	visitorEmailLimitBurst := c.Int("visitor-email-limit-burst")
 	visitorEmailLimitReplenishStr := c.String("visitor-email-limit-replenish")
 	behindProxy := c.Bool("behind-proxy")
-	stripeSecretKey := c.String("stripe-secret-key")
-	stripeWebhookKey := c.String("stripe-webhook-key")
-	billingContact := c.String("billing-contact")
-	metricsListenHTTP := c.String("metrics-listen-http")
-	enableMetrics := c.Bool("enable-metrics") || metricsListenHTTP != ""
-	profileListenHTTP := c.String("profile-listen-http")
 
 	// Convert durations
 	cacheDuration, err := util.ParseDuration(cacheDurationStr)
@@ -252,26 +199,12 @@ func execServe(c *cli.Context) error {
 	}
 
 	// Check values
-	if firebaseKeyFile != "" && !util.FileExists(firebaseKeyFile) {
-		return errors.New("if set, FCM key file must exist")
-	} else if webPushPublicKey != "" && (webPushPrivateKey == "" || webPushFile == "" || webPushEmailAddress == "" || baseURL == "") {
-		return errors.New("if web push is enabled, web-push-private-key, web-push-public-key, web-push-file, web-push-email-address, and base-url should be set. run 'ntfy webpush keys' to generate keys")
-	} else if keepaliveInterval < 5*time.Second {
+	if keepaliveInterval < 5*time.Second {
 		return errors.New("keepalive interval cannot be lower than five seconds")
 	} else if managerInterval < 5*time.Second {
 		return errors.New("manager interval cannot be lower than five seconds")
 	} else if cacheDuration > 0 && cacheDuration < managerInterval {
 		return errors.New("cache duration cannot be lower than manager interval")
-	} else if keyFile != "" && !util.FileExists(keyFile) {
-		return errors.New("if set, key file must exist")
-	} else if certFile != "" && !util.FileExists(certFile) {
-		return errors.New("if set, certificate file must exist")
-	} else if listenHTTPS != "" && (keyFile == "" || certFile == "") {
-		return errors.New("if listen-https is set, both key-file and cert-file must be set")
-	} else if smtpSenderAddr != "" && (baseURL == "" || smtpSenderFrom == "") {
-		return errors.New("if smtp-sender-addr is set, base-url, and smtp-sender-from must also be set")
-	} else if smtpServerListen != "" && smtpServerDomain == "" {
-		return errors.New("if smtp-server-listen is set, smtp-server-domain must also be set")
 	} else if attachmentCacheDir != "" && baseURL == "" {
 		return errors.New("if attachment-cache-dir is set, base-url must also be set")
 	} else if baseURL != "" {
@@ -291,19 +224,8 @@ func execServe(c *cli.Context) error {
 		return errors.New("if upstream-base-url is set, base-url must also be set")
 	} else if upstreamBaseURL != "" && baseURL != "" && baseURL == upstreamBaseURL {
 		return errors.New("base-url and upstream-base-url cannot be identical, you'll likely want to set upstream-base-url to https://ntfy.sh, see https://ntfy.sh/docs/config/#ios-instant-notifications")
-	} else if authFile == "" && (enableSignup || enableLogin || enableReservations || stripeSecretKey != "") {
-		return errors.New("cannot set enable-signup, enable-login, enable-reserve-topics, or stripe-secret-key if auth-file is not set")
 	} else if enableSignup && !enableLogin {
 		return errors.New("cannot set enable-signup without also setting enable-login")
-	} else if stripeSecretKey != "" && (stripeWebhookKey == "" || baseURL == "") {
-		return errors.New("if stripe-secret-key is set, stripe-webhook-key and base-url must also be set")
-	} else if twilioAccount != "" && (twilioAuthToken == "" || twilioPhoneNumber == "" || twilioVerifyService == "" || baseURL == "" || authFile == "") {
-		return errors.New("if twilio-account is set, twilio-auth-token, twilio-phone-number, twilio-verify-service, base-url, and auth-file must also be set")
-	} else if messageSizeLimit > server.DefaultMessageSizeLimit {
-		log.Warn("message-size-limit is greater than 4K, this is not recommended and largely untested, and may lead to issues with some clients")
-		if messageSizeLimit > 5*1024*1024 {
-			return errors.New("message-size-limit cannot be higher than 5M")
-		}
 	}
 
 	// Backwards compatibility
@@ -339,12 +261,6 @@ func execServe(c *cli.Context) error {
 		visitorRequestLimitExemptIPs = append(visitorRequestLimitExemptIPs, ips...)
 	}
 
-	// Stripe things
-	if stripeSecretKey != "" {
-		stripe.EnableTelemetry = false // Whoa!
-		stripe.Key = stripeSecretKey
-	}
-
 	// Add default forbidden topics
 	disallowedTopics = append(disallowedTopics, server.DefaultDisallowedTopics...)
 
@@ -353,12 +269,8 @@ func execServe(c *cli.Context) error {
 	conf.File = config
 	conf.BaseURL = baseURL
 	conf.ListenHTTP = listenHTTP
-	conf.ListenHTTPS = listenHTTPS
 	conf.ListenUnix = listenUnix
 	conf.ListenUnixMode = fs.FileMode(listenUnixMode)
-	conf.KeyFile = keyFile
-	conf.CertFile = certFile
-	conf.FirebaseKeyFile = firebaseKeyFile
 	conf.CacheFile = cacheFile
 	conf.CacheDuration = cacheDuration
 	conf.CacheStartupQueries = cacheStartupQueries
@@ -377,17 +289,6 @@ func execServe(c *cli.Context) error {
 	conf.WebRoot = webRoot
 	conf.UpstreamBaseURL = upstreamBaseURL
 	conf.UpstreamAccessToken = upstreamAccessToken
-	conf.SMTPSenderAddr = smtpSenderAddr
-	conf.SMTPSenderUser = smtpSenderUser
-	conf.SMTPSenderPass = smtpSenderPass
-	conf.SMTPSenderFrom = smtpSenderFrom
-	conf.SMTPServerListen = smtpServerListen
-	conf.SMTPServerDomain = smtpServerDomain
-	conf.SMTPServerAddrPrefix = smtpServerAddrPrefix
-	conf.TwilioAccount = twilioAccount
-	conf.TwilioAuthToken = twilioAuthToken
-	conf.TwilioPhoneNumber = twilioPhoneNumber
-	conf.TwilioVerifyService = twilioVerifyService
 	conf.MessageSizeLimit = int(messageSizeLimit)
 	conf.MessageDelayMax = messageDelayLimit
 	conf.TotalTopicLimit = totalTopicLimit
@@ -402,21 +303,10 @@ func execServe(c *cli.Context) error {
 	conf.VisitorEmailLimitReplenish = visitorEmailLimitReplenish
 	conf.VisitorSubscriberRateLimiting = visitorSubscriberRateLimiting
 	conf.BehindProxy = behindProxy
-	conf.StripeSecretKey = stripeSecretKey
-	conf.StripeWebhookKey = stripeWebhookKey
-	conf.BillingContact = billingContact
 	conf.EnableSignup = enableSignup
 	conf.EnableLogin = enableLogin
 	conf.EnableReservations = enableReservations
-	conf.EnableMetrics = enableMetrics
-	conf.MetricsListenHTTP = metricsListenHTTP
-	conf.ProfileListenHTTP = profileListenHTTP
 	conf.Version = c.App.Version
-	conf.WebPushPrivateKey = webPushPrivateKey
-	conf.WebPushPublicKey = webPushPublicKey
-	conf.WebPushFile = webPushFile
-	conf.WebPushEmailAddress = webPushEmailAddress
-	conf.WebPushStartupQueries = webPushStartupQueries
 
 	// Set up hot-reloading of config
 	go sigHandlerConfigReload(config)

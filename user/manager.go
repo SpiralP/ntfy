@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mattn/go-sqlite3"
-	"github.com/stripe/stripe-go/v74"
 	"golang.org/x/crypto/bcrypt"
 	"heckel.io/ntfy/v2/log"
 	"heckel.io/ntfy/v2/util"
@@ -1027,14 +1026,6 @@ func (a *Manager) readUser(rows *sql.Rows) (*User, error) {
 			Emails:   emails,
 			Calls:    calls,
 		},
-		Billing: &Billing{
-			StripeCustomerID:            stripeCustomerID.String,                                          // May be empty
-			StripeSubscriptionID:        stripeSubscriptionID.String,                                      // May be empty
-			StripeSubscriptionStatus:    stripe.SubscriptionStatus(stripeSubscriptionStatus.String),       // May be empty
-			StripeSubscriptionInterval:  stripe.PriceRecurringInterval(stripeSubscriptionInterval.String), // May be empty
-			StripeSubscriptionPaidUntil: time.Unix(stripeSubscriptionPaidUntil.Int64, 0),                  // May be zero
-			StripeSubscriptionCancelAt:  time.Unix(stripeSubscriptionCancelAt.Int64, 0),                   // May be zero
-		},
 		Deleted: deleted.Valid,
 	}
 	if err := json.Unmarshal([]byte(prefs), user.Prefs); err != nil {
@@ -1403,14 +1394,6 @@ func (a *Manager) RemoveTier(code string) error {
 	}
 	// This fails if any user has this tier
 	if _, err := a.db.Exec(deleteTierQuery, code); err != nil {
-		return err
-	}
-	return nil
-}
-
-// ChangeBilling updates a user's billing fields, namely the Stripe customer ID, and subscription information
-func (a *Manager) ChangeBilling(username string, billing *Billing) error {
-	if _, err := a.db.Exec(updateBillingQuery, nullString(billing.StripeCustomerID), nullString(billing.StripeSubscriptionID), nullString(string(billing.StripeSubscriptionStatus)), nullString(string(billing.StripeSubscriptionInterval)), nullInt64(billing.StripeSubscriptionPaidUntil.Unix()), nullInt64(billing.StripeSubscriptionCancelAt.Unix()), username); err != nil {
 		return err
 	}
 	return nil

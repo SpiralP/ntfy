@@ -77,12 +77,8 @@ type Config struct {
 	File                                 string // Config file, only used for testing
 	BaseURL                              string
 	ListenHTTP                           string
-	ListenHTTPS                          string
 	ListenUnix                           string
 	ListenUnixMode                       fs.FileMode
-	KeyFile                              string
-	CertFile                             string
-	FirebaseKeyFile                      string
 	CacheFile                            string
 	CacheDuration                        time.Duration
 	CacheStartupQueries                  string
@@ -102,27 +98,8 @@ type Config struct {
 	DisallowedTopics                     []string
 	WebRoot                              string // empty to disable
 	DelayedSenderInterval                time.Duration
-	FirebaseKeepaliveInterval            time.Duration
-	FirebasePollInterval                 time.Duration
-	FirebaseQuotaExceededPenaltyDuration time.Duration
 	UpstreamBaseURL                      string
 	UpstreamAccessToken                  string
-	SMTPSenderAddr                       string
-	SMTPSenderUser                       string
-	SMTPSenderPass                       string
-	SMTPSenderFrom                       string
-	SMTPServerListen                     string
-	SMTPServerDomain                     string
-	SMTPServerAddrPrefix                 string
-	TwilioAccount                        string
-	TwilioAuthToken                      string
-	TwilioPhoneNumber                    string
-	TwilioCallsBaseURL                   string
-	TwilioVerifyBaseURL                  string
-	TwilioVerifyService                  string
-	MetricsEnable                        bool
-	MetricsListenHTTP                    string
-	ProfileListenHTTP                    string
 	MessageDelayMin                      time.Duration
 	MessageDelayMax                      time.Duration
 	MessageSizeLimit                     int
@@ -144,23 +121,11 @@ type Config struct {
 	VisitorStatsResetTime                time.Time // Time of the day at which to reset visitor stats
 	VisitorSubscriberRateLimiting        bool      // Enable subscriber-based rate limiting for UnifiedPush topics
 	BehindProxy                          bool
-	StripeSecretKey                      string
-	StripeWebhookKey                     string
-	StripePriceCacheDuration             time.Duration
-	BillingContact                       string
 	EnableSignup                         bool // Enable creation of accounts via API and UI
 	EnableLogin                          bool
 	EnableReservations                   bool // Allow users with role "user" to own/reserve topics
-	EnableMetrics                        bool
 	AccessControlAllowOrigin             string // CORS header field to restrict access from web clients
 	Version                              string // injected by App
-	WebPushPrivateKey                    string
-	WebPushPublicKey                     string
-	WebPushFile                          string
-	WebPushEmailAddress                  string
-	WebPushStartupQueries                string
-	WebPushExpiryDuration                time.Duration
-	WebPushExpiryWarningDuration         time.Duration
 }
 
 // NewConfig instantiates a default new server config
@@ -169,12 +134,8 @@ func NewConfig() *Config {
 		File:                                 "", // Only used for testing
 		BaseURL:                              "",
 		ListenHTTP:                           DefaultListenHTTP,
-		ListenHTTPS:                          "",
 		ListenUnix:                           "",
 		ListenUnixMode:                       0,
-		KeyFile:                              "",
-		CertFile:                             "",
-		FirebaseKeyFile:                      "",
 		CacheFile:                            "",
 		CacheDuration:                        DefaultCacheDuration,
 		CacheStartupQueries:                  "",
@@ -194,24 +155,8 @@ func NewConfig() *Config {
 		DisallowedTopics:                     DefaultDisallowedTopics,
 		WebRoot:                              "/",
 		DelayedSenderInterval:                DefaultDelayedSenderInterval,
-		FirebaseKeepaliveInterval:            DefaultFirebaseKeepaliveInterval,
-		FirebasePollInterval:                 DefaultFirebasePollInterval,
-		FirebaseQuotaExceededPenaltyDuration: DefaultFirebaseQuotaExceededPenaltyDuration,
 		UpstreamBaseURL:                      "",
 		UpstreamAccessToken:                  "",
-		SMTPSenderAddr:                       "",
-		SMTPSenderUser:                       "",
-		SMTPSenderPass:                       "",
-		SMTPSenderFrom:                       "",
-		SMTPServerListen:                     "",
-		SMTPServerDomain:                     "",
-		SMTPServerAddrPrefix:                 "",
-		TwilioCallsBaseURL:                   "https://api.twilio.com", // Override for tests
-		TwilioAccount:                        "",
-		TwilioAuthToken:                      "",
-		TwilioPhoneNumber:                    "",
-		TwilioVerifyBaseURL:                  "https://verify.twilio.com", // Override for tests
-		TwilioVerifyService:                  "",
 		MessageSizeLimit:                     DefaultMessageSizeLimit,
 		MessageDelayMin:                      DefaultMessageDelayMin,
 		MessageDelayMax:                      DefaultMessageDelayMax,
@@ -233,20 +178,10 @@ func NewConfig() *Config {
 		VisitorStatsResetTime:                DefaultVisitorStatsResetTime,
 		VisitorSubscriberRateLimiting:        false,
 		BehindProxy:                          false,
-		StripeSecretKey:                      "",
-		StripeWebhookKey:                     "",
-		StripePriceCacheDuration:             DefaultStripePriceCacheDuration,
-		BillingContact:                       "",
 		EnableSignup:                         false,
 		EnableLogin:                          false,
 		EnableReservations:                   false,
 		AccessControlAllowOrigin:             "*",
 		Version:                              "",
-		WebPushPrivateKey:                    "",
-		WebPushPublicKey:                     "",
-		WebPushFile:                          "",
-		WebPushEmailAddress:                  "",
-		WebPushExpiryDuration:                DefaultWebPushExpiryDuration,
-		WebPushExpiryWarningDuration:         DefaultWebPushExpiryWarningDuration,
 	}
 }

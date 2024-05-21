@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"github.com/emersion/go-smtp"
 	"github.com/gorilla/websocket"
 	"heckel.io/ntfy/v2/log"
 	"heckel.io/ntfy/v2/util"
@@ -60,15 +59,6 @@ func logvrm(v *visitor, r *http.Request, m *message) *log.Event {
 // logvrm creates a new log event with visitor fields and message fields
 func logvm(v *visitor, m *message) *log.Event {
 	return logv(v).With(m)
-}
-
-// logem creates a new log event with email fields
-func logem(smtpConn *smtp.Conn) *log.Event {
-	ev := log.Tag(tagSMTP).Field("smtp_hostname", smtpConn.Hostname())
-	if smtpConn.Conn() != nil {
-		ev.Field("smtp_remote_addr", smtpConn.Conn().RemoteAddr().String())
-	}
-	return ev
 }
 
 func httpContext(r *http.Request) log.Context {

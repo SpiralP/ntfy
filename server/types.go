@@ -315,16 +315,6 @@ type apiAccountTokenResponse struct {
 	Expires    int64  `json:"expires,omitempty"` // Unix timestamp
 }
 
-type apiAccountPhoneNumberVerifyRequest struct {
-	Number  string `json:"number"`
-	Channel string `json:"channel"`
-}
-
-type apiAccountPhoneNumberAddRequest struct {
-	Number string `json:"number"`
-	Code   string `json:"code"` // Only set when adding a phone number
-}
-
 type apiAccountTier struct {
 	Code string `json:"code"`
 	Name string `json:"name"`

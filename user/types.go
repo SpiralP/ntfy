@@ -2,7 +2,6 @@ package user
 
 import (
 	"errors"
-	"github.com/stripe/stripe-go/v74"
 	"heckel.io/ntfy/v2/log"
 	"net/netip"
 	"regexp"
@@ -20,7 +19,6 @@ type User struct {
 	Prefs     *Prefs
 	Tier      *Tier
 	Stats     *Stats
-	Billing   *Billing
 	SyncTopic string
 	Deleted   bool
 }
@@ -133,16 +131,6 @@ type Stats struct {
 	Messages int64
 	Emails   int64
 	Calls    int64
-}
-
-// Billing is a struct holding a user's billing information
-type Billing struct {
-	StripeCustomerID            string
-	StripeSubscriptionID        string
-	StripeSubscriptionStatus    stripe.SubscriptionStatus
-	StripeSubscriptionInterval  stripe.PriceRecurringInterval
-	StripeSubscriptionPaidUntil time.Time
-	StripeSubscriptionCancelAt  time.Time
 }
 
 // Grant is a struct that represents an access control entry to a topic by a user

@@ -92,11 +92,6 @@ func (s *Server) execManager() {
 			"emails_sent_failure":     sentMailFailure,
 		}).
 		Info("Server stats")
-	mset(metricMessagesCached, messagesCached)
-	mset(metricVisitors, visitorsCount)
-	mset(metricUsers, usersCount)
-	mset(metricSubscribers, subscribers)
-	mset(metricTopics, topicsCount)
 }
 
 func (s *Server) pruneVisitors() {

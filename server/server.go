@@ -36,7 +36,6 @@ import (
 type Server struct {
 	config            *Config
 	httpServer        *http.Server
-	httpsServer       *http.Server
 	unixListener      net.Listener
 	topics            map[string]*topic
 	visitors          map[string]*visitor // ip:<ip> or user:<user>
@@ -252,9 +251,6 @@ func (s *Server) Stop() {
 	if s.httpServer != nil {
 		s.httpServer.Close()
 	}
-	if s.httpsServer != nil {
-		s.httpsServer.Close()
-	}
 	if s.unixListener != nil {
 		s.unixListener.Close()
 	}
@@ -288,9 +284,6 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 				s.handleError(w, r, v, err)
 				return
 			}
-			if metricHTTPRequests != nil {
-				metricHTTPRequests.WithLabelValues("200", "20000", r.Method).Inc()
-			}
 		}).
 		Debug("HTTP request finished")
 }
@@ -299,9 +292,6 @@ func (s *Server) handleError(w http.ResponseWriter, r *http.Request, v *visitor,
 	httpErr, ok := err.(*errHTTP)
 	if !ok {
 		httpErr = errHTTPInternalError
-	}
-	if metricHTTPRequests != nil {
-		metricHTTPRequests.WithLabelValues(fmt.Sprintf("%d", httpErr.HTTPCode), fmt.Sprintf("%d", httpErr.Code), r.Method).Inc()
 	}
 	isNormalError := strings.Contains(err.Error(), "i/o timeout") || util.Contains(normalErrorCodes, httpErr.HTTPCode)
 	ev := logvr(v, r).Err(err)
@@ -580,7 +570,6 @@ func (s *Server) handleFile(w http.ResponseWriter, r *http.Request, v *visitor) 
 }
 
 func (s *Server) handlePublishInternal(r *http.Request, v *visitor) (*message, error) {
-	start := time.Now()
 	t, err := fromContext[*topic](r, contextTopic)
 	if err != nil {
 		return nil, err
@@ -659,20 +648,14 @@ func (s *Server) handlePublishInternal(r *http.Request, v *visitor) (*message, e
 	s.mu.Lock()
 	s.messages++
 	s.mu.Unlock()
-	if unifiedpush {
-		minc(metricUnifiedPushPublishedSuccess)
-	}
-	mset(metricMessagePublishDurationMillis, time.Since(start).Milliseconds())
 	return m, nil
 }
 
 func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request, v *visitor) error {
 	m, err := s.handlePublishInternal(r, v)
 	if err != nil {
-		minc(metricMessagesPublishedFailure)
 		return err
 	}
-	minc(metricMessagesPublishedSuccess)
 	return s.writeJSON(w, m)
 }
 

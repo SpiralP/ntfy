@@ -57,8 +57,6 @@ var flagsServe = append(
 	altsrc.NewBoolFlag(&cli.BoolFlag{Name: "enable-signup", Aliases: []string{"enable_signup"}, EnvVars: []string{"NTFY_ENABLE_SIGNUP"}, Value: false, Usage: "allows users to sign up via the web app, or API"}),
 	altsrc.NewBoolFlag(&cli.BoolFlag{Name: "enable-login", Aliases: []string{"enable_login"}, EnvVars: []string{"NTFY_ENABLE_LOGIN"}, Value: false, Usage: "allows users to log in via the web app, or API"}),
 	altsrc.NewBoolFlag(&cli.BoolFlag{Name: "enable-reservations", Aliases: []string{"enable_reservations"}, EnvVars: []string{"NTFY_ENABLE_RESERVATIONS"}, Value: false, Usage: "allows users to reserve topics (if their tier allows it)"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "upstream-base-url", Aliases: []string{"upstream_base_url"}, EnvVars: []string{"NTFY_UPSTREAM_BASE_URL"}, Value: "", Usage: "forward poll request to an upstream server, this is needed for iOS push notifications for self-hosted servers"}),
-	altsrc.NewStringFlag(&cli.StringFlag{Name: "upstream-access-token", Aliases: []string{"upstream_access_token"}, EnvVars: []string{"NTFY_UPSTREAM_ACCESS_TOKEN"}, Value: "", Usage: "access token to use for the upstream server; needed only if upstream rate limits are exceeded or upstream server requires auth"}),
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "message-size-limit", Aliases: []string{"message_size_limit"}, EnvVars: []string{"NTFY_MESSAGE_SIZE_LIMIT"}, Value: util.FormatSize(server.DefaultMessageSizeLimit), Usage: "size limit for the message (see docs for limitations)"}),
 	altsrc.NewStringFlag(&cli.StringFlag{Name: "message-delay-limit", Aliases: []string{"message_delay_limit"}, EnvVars: []string{"NTFY_MESSAGE_DELAY_LIMIT"}, Value: util.FormatDuration(server.DefaultMessageDelayMax), Usage: "max duration a message can be scheduled into the future"}),
 	altsrc.NewIntFlag(&cli.IntFlag{Name: "global-topic-limit", Aliases: []string{"global_topic_limit", "T"}, EnvVars: []string{"NTFY_GLOBAL_TOPIC_LIMIT"}, Value: server.DefaultTotalTopicLimit, Usage: "total number of topics allowed"}),
@@ -123,8 +121,6 @@ func execServe(c *cli.Context) error {
 	enableSignup := c.Bool("enable-signup")
 	enableLogin := c.Bool("enable-login")
 	enableReservations := c.Bool("enable-reservations")
-	upstreamBaseURL := c.String("upstream-base-url")
-	upstreamAccessToken := c.String("upstream-access-token")
 	messageSizeLimitStr := c.String("message-size-limit")
 	messageDelayLimitStr := c.String("message-delay-limit")
 	totalTopicLimit := c.Int("global-topic-limit")
@@ -216,14 +212,6 @@ func execServe(c *cli.Context) error {
 		} else if u.Path != "" {
 			return fmt.Errorf("if set, base-url must not have a path (%s), as hosting ntfy on a sub-path is not supported, e.g. https://ntfy.mydomain.com", u.Path)
 		}
-	} else if upstreamBaseURL != "" && !strings.HasPrefix(upstreamBaseURL, "http://") && !strings.HasPrefix(upstreamBaseURL, "https://") {
-		return errors.New("if set, upstream-base-url must start with http:// or https://")
-	} else if upstreamBaseURL != "" && strings.HasSuffix(upstreamBaseURL, "/") {
-		return errors.New("if set, upstream-base-url must not end with a slash (/)")
-	} else if upstreamBaseURL != "" && baseURL == "" {
-		return errors.New("if upstream-base-url is set, base-url must also be set")
-	} else if upstreamBaseURL != "" && baseURL != "" && baseURL == upstreamBaseURL {
-		return errors.New("base-url and upstream-base-url cannot be identical, you'll likely want to set upstream-base-url to https://ntfy.sh, see https://ntfy.sh/docs/config/#ios-instant-notifications")
 	} else if enableSignup && !enableLogin {
 		return errors.New("cannot set enable-signup without also setting enable-login")
 	}
@@ -287,8 +275,6 @@ func execServe(c *cli.Context) error {
 	conf.ManagerInterval = managerInterval
 	conf.DisallowedTopics = disallowedTopics
 	conf.WebRoot = webRoot
-	conf.UpstreamBaseURL = upstreamBaseURL
-	conf.UpstreamAccessToken = upstreamAccessToken
 	conf.MessageSizeLimit = int(messageSizeLimit)
 	conf.MessageDelayMax = messageDelayLimit
 	conf.TotalTopicLimit = totalTopicLimit

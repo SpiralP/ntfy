@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
@@ -644,9 +643,6 @@ func (s *Server) handlePublishInternal(r *http.Request, v *visitor) (*message, e
 		if err := t.Publish(v, m); err != nil {
 			return nil, err
 		}
-		if s.config.UpstreamBaseURL != "" && !unifiedpush { // UP messages are not sent to upstream
-			go s.forwardPollRequest(v, m)
-		}
 	} else {
 		logvrm(v, r, m).Tag(tagPublish).Debug("Message delayed, will process later")
 	}
@@ -678,38 +674,6 @@ func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request, v *visito
 	}
 	minc(metricMessagesPublishedSuccess)
 	return s.writeJSON(w, m)
-}
-
-func (s *Server) forwardPollRequest(v *visitor, m *message) {
-	topicURL := fmt.Sprintf("%s/%s", s.config.BaseURL, m.Topic)
-	topicHash := fmt.Sprintf("%x", sha256.Sum256([]byte(topicURL)))
-	forwardURL := fmt.Sprintf("%s/%s", s.config.UpstreamBaseURL, topicHash)
-	logvm(v, m).Debug("Publishing poll request to %s", forwardURL)
-	req, err := http.NewRequest("POST", forwardURL, strings.NewReader(""))
-	if err != nil {
-		logvm(v, m).Err(err).Warn("Unable to publish poll request")
-		return
-	}
-	req.Header.Set("User-Agent", "ntfy/"+s.config.Version)
-	req.Header.Set("X-Poll-ID", m.ID)
-	if s.config.UpstreamAccessToken != "" {
-		req.Header.Set("Authorization", util.BearerAuth(s.config.UpstreamAccessToken))
-	}
-	var httpClient = &http.Client{
-		Timeout: time.Second * 10,
-	}
-	response, err := httpClient.Do(req)
-	if err != nil {
-		logvm(v, m).Err(err).Warn("Unable to publish poll request")
-		return
-	} else if response.StatusCode != http.StatusOK {
-		if response.StatusCode == http.StatusTooManyRequests {
-			logvm(v, m).Err(err).Warn("Unable to publish poll request, the upstream server %s responded with HTTP %s; you may solve this by sending fewer daily messages, or by configuring upstream-access-token (assuming you have an account with higher rate limits) ", s.config.UpstreamBaseURL, response.Status)
-		} else {
-			logvm(v, m).Err(err).Warn("Unable to publish poll request, the upstream server %s responded with HTTP %s", s.config.UpstreamBaseURL, response.Status)
-		}
-		return
-	}
 }
 
 func (s *Server) parsePublishParams(r *http.Request, m *message) (cache bool, firebase bool, email, call string, template bool, unifiedpush bool, err *errHTTP) {
@@ -1523,9 +1487,6 @@ func (s *Server) sendDelayedMessage(v *visitor, m *message) error {
 				logvm(v, m).Err(err).Warn("Unable to publish message")
 			}
 		}()
-	}
-	if s.config.UpstreamBaseURL != "" {
-		go s.forwardPollRequest(v, m)
 	}
 	if err := s.messageCache.MarkPublished(m); err != nil {
 		return err

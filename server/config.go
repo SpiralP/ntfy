@@ -98,8 +98,6 @@ type Config struct {
 	DisallowedTopics                     []string
 	WebRoot                              string // empty to disable
 	DelayedSenderInterval                time.Duration
-	UpstreamBaseURL                      string
-	UpstreamAccessToken                  string
 	MessageDelayMin                      time.Duration
 	MessageDelayMax                      time.Duration
 	MessageSizeLimit                     int
@@ -155,8 +153,6 @@ func NewConfig() *Config {
 		DisallowedTopics:                     DefaultDisallowedTopics,
 		WebRoot:                              "/",
 		DelayedSenderInterval:                DefaultDelayedSenderInterval,
-		UpstreamBaseURL:                      "",
-		UpstreamAccessToken:                  "",
 		MessageSizeLimit:                     DefaultMessageSizeLimit,
 		MessageDelayMin:                      DefaultMessageDelayMin,
 		MessageDelayMax:                      DefaultMessageDelayMax,

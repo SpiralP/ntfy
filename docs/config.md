@@ -631,7 +631,7 @@ or the root domain:
       listen 443 ssl http2;
       server_name ntfy.sh;
     
-      # See https://ssl-config.mozilla.org/#server=nginx&version=1.18.0&config=intermediate&openssl=1.1.1k&hsts=false&ocsp=false&guideline=5.6see https://ssl-config.mozilla.org/#server=nginx&version=1.18.0&config=intermediate&openssl=1.1.1k&hsts=false&ocsp=false&guideline=5.6
+      # See https://ssl-config.mozilla.org/#server=nginx&version=1.18.0&config=intermediate&openssl=1.1.1k&hsts=false&ocsp=false&guideline=5.6
       ssl_session_timeout 1d;
       ssl_session_cache shared:MozSSL:10m; # about 40000 sessions
       ssl_session_tickets off;
@@ -698,7 +698,7 @@ or the root domain:
       listen 443 ssl http2;
       server_name ntfy.sh;
     
-      # See https://ssl-config.mozilla.org/#server=nginx&version=1.18.0&config=intermediate&openssl=1.1.1k&hsts=false&ocsp=false&guideline=5.6see https://ssl-config.mozilla.org/#server=nginx&version=1.18.0&config=intermediate&openssl=1.1.1k&hsts=false&ocsp=false&guideline=5.6
+      # See https://ssl-config.mozilla.org/#server=nginx&version=1.18.0&config=intermediate&openssl=1.1.1k&hsts=false&ocsp=false&guideline=5.6
       ssl_session_timeout 1d;
       ssl_session_cache shared:MozSSL:10m; # about 40000 sessions
       ssl_session_tickets off;
@@ -777,6 +777,7 @@ or the root domain:
     ```
     # Note that this config is most certainly incomplete. Please help out and let me know what's missing
     # via Discord/Matrix or in a GitHub issue.
+    # Note: Caddy automatically handles both HTTP and WebSockets with reverse_proxy 
 
     ntfy.sh, http://nfty.sh {
         reverse_proxy 127.0.0.1:2586
@@ -1242,6 +1243,10 @@ and [here](https://easyengine.io/tutorials/nginx/block-wp-login-php-bruteforce-a
     maxretry = 10
     ```
 
+Note that if you run nginx in a container, append `, chain=DOCKER-USER` to the jail.local action. By default, the jail action chain
+is `INPUT`, but `FORWARD` is used when using docker networks. `DOCKER-USER`, available when using docker, is part of the `FORWARD`
+chain.
+
 ## Health checks
 A preliminary health check API endpoint is exposed at `/v1/health`. The endpoint returns a `json` response in the format shown below.
 If a non-200 HTTP status code is returned or if the returned `healthy` field is `false` the ntfy service should be considered as unhealthy.
@@ -1427,6 +1432,9 @@ variable before running the `ntfy` command (e.g. `export NTFY_LISTEN_HTTP=:80`).
 | `web-push-file`                            | `NTFY_WEB_PUSH_FILE`                            | *string*                                            | -                 | Web Push: Database file that stores subscriptions                                                                                                                                                                               |
 | `web-push-email-address`                   | `NTFY_WEB_PUSH_EMAIL_ADDRESS`                   | *string*                                            | -                 | Web Push: Sender email address                                                                                                                                                                                                  |
 | `web-push-startup-queries`                 | `NTFY_WEB_PUSH_STARTUP_QUERIES`                 | *string*                                            | -                 | Web Push: SQL queries to run against subscription database at startup                                                                                                                                                           |
+| `log-format`                               | `NTFY_LOG_FORMAT`                               | *string*                                            | `text`            | Defines the output format, can be text or json                                                                                                                                                                                  |
+| `log-file`                                 | `NTFY_LOG_FILE`                                 | *string*                                            | -                 | Defines the filename to write logs to. If this is not set, ntfy logs to stderr                                                                                                                                                  |
+| `log-level`                                | `NTFY_LOG_LEVEL`                                | *string*                                            | `info`            | Defines the default log level, can be one of trace, debug, info, warn or error                                                                                                                                                  |
 
 The format for a *duration* is: `<number>(smhd)`, e.g. 30s, 20m, 1h or 3d.   
 The format for a *size* is: `<number>(GMK)`, e.g. 1G, 200M or 4000k.

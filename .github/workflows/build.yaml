@@ -10,15 +10,5 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: '1.24.x'
-      - name: Install node
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: './web/package-lock.json'
-      - name: Install dependencies
-        run: make build-deps-ubuntu
-      - name: Build all the things
-        run: make build
-      - name: Print build results and checksums
-        run: make cli-build-results
+      - name: Build
+        run: go build

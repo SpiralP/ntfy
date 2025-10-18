@@ -67,7 +67,6 @@ func (c *fileCache) Write(id string, in io.Reader, limiters ...util.Limiter) (in
 	}
 	c.mu.Lock()
 	c.totalSizeCurrent += size
-	mset(metricAttachmentsTotalSize, c.totalSizeCurrent)
 	c.mu.Unlock()
 	return size, nil
 }
@@ -90,7 +89,6 @@ func (c *fileCache) Remove(ids ...string) error {
 	c.mu.Lock()
 	c.totalSizeCurrent = size
 	c.mu.Unlock()
-	mset(metricAttachmentsTotalSize, size)
 	return nil
 }
 

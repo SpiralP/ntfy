@@ -81,12 +81,8 @@ type Config struct {
 	File                                 string // Config file, only used for testing
 	BaseURL                              string
 	ListenHTTP                           string
-	ListenHTTPS                          string
 	ListenUnix                           string
 	ListenUnixMode                       fs.FileMode
-	KeyFile                              string
-	CertFile                             string
-	FirebaseKeyFile                      string
 	CacheFile                            string
 	CacheDuration                        time.Duration
 	CacheStartupQueries                  string
@@ -110,27 +106,6 @@ type Config struct {
 	DisallowedTopics                     []string
 	WebRoot                              string // empty to disable
 	DelayedSenderInterval                time.Duration
-	FirebaseKeepaliveInterval            time.Duration
-	FirebasePollInterval                 time.Duration
-	FirebaseQuotaExceededPenaltyDuration time.Duration
-	UpstreamBaseURL                      string
-	UpstreamAccessToken                  string
-	SMTPSenderAddr                       string
-	SMTPSenderUser                       string
-	SMTPSenderPass                       string
-	SMTPSenderFrom                       string
-	SMTPServerListen                     string
-	SMTPServerDomain                     string
-	SMTPServerAddrPrefix                 string
-	TwilioAccount                        string
-	TwilioAuthToken                      string
-	TwilioPhoneNumber                    string
-	TwilioCallsBaseURL                   string
-	TwilioVerifyBaseURL                  string
-	TwilioVerifyService                  string
-	MetricsEnable                        bool
-	MetricsListenHTTP                    string
-	ProfileListenHTTP                    string
 	MessageDelayMin                      time.Duration
 	MessageDelayMax                      time.Duration
 	MessageSizeLimit                     int
@@ -156,22 +131,10 @@ type Config struct {
 	BehindProxy                          bool           // If true, the server will trust the proxy client IP header to determine the client IP address (IPv4 and IPv6 supported)
 	ProxyForwardedHeader                 string         // The header field to read the real/client IP address from, if BehindProxy is true, defaults to "X-Forwarded-For" (IPv4 and IPv6 supported)
 	ProxyTrustedPrefixes                 []netip.Prefix // List of trusted proxy networks (IPv4 or IPv6) that will be stripped from the Forwarded header if BehindProxy is true
-	StripeSecretKey                      string
-	StripeWebhookKey                     string
-	StripePriceCacheDuration             time.Duration
-	BillingContact                       string
 	EnableSignup                         bool // Enable creation of accounts via API and UI
 	EnableLogin                          bool
 	EnableReservations                   bool // Allow users with role "user" to own/reserve topics
-	EnableMetrics                        bool
 	AccessControlAllowOrigin             string // CORS header field to restrict access from web clients
-	WebPushPrivateKey                    string
-	WebPushPublicKey                     string
-	WebPushFile                          string
-	WebPushEmailAddress                  string
-	WebPushStartupQueries                string
-	WebPushExpiryDuration                time.Duration
-	WebPushExpiryWarningDuration         time.Duration
 	Version                              string // injected by App
 }
 
@@ -181,12 +144,8 @@ func NewConfig() *Config {
 		File:                                 DefaultConfigFile, // Only used for testing
 		BaseURL:                              "",
 		ListenHTTP:                           DefaultListenHTTP,
-		ListenHTTPS:                          "",
 		ListenUnix:                           "",
 		ListenUnixMode:                       0,
-		KeyFile:                              "",
-		CertFile:                             "",
-		FirebaseKeyFile:                      "",
 		CacheFile:                            "",
 		CacheDuration:                        DefaultCacheDuration,
 		CacheStartupQueries:                  "",
@@ -207,24 +166,6 @@ func NewConfig() *Config {
 		DisallowedTopics:                     DefaultDisallowedTopics,
 		WebRoot:                              "/",
 		DelayedSenderInterval:                DefaultDelayedSenderInterval,
-		FirebaseKeepaliveInterval:            DefaultFirebaseKeepaliveInterval,
-		FirebasePollInterval:                 DefaultFirebasePollInterval,
-		FirebaseQuotaExceededPenaltyDuration: DefaultFirebaseQuotaExceededPenaltyDuration,
-		UpstreamBaseURL:                      "",
-		UpstreamAccessToken:                  "",
-		SMTPSenderAddr:                       "",
-		SMTPSenderUser:                       "",
-		SMTPSenderPass:                       "",
-		SMTPSenderFrom:                       "",
-		SMTPServerListen:                     "",
-		SMTPServerDomain:                     "",
-		SMTPServerAddrPrefix:                 "",
-		TwilioCallsBaseURL:                   "https://api.twilio.com", // Override for tests
-		TwilioAccount:                        "",
-		TwilioAuthToken:                      "",
-		TwilioPhoneNumber:                    "",
-		TwilioVerifyBaseURL:                  "https://verify.twilio.com", // Override for tests
-		TwilioVerifyService:                  "",
 		MessageSizeLimit:                     DefaultMessageSizeLimit,
 		MessageDelayMin:                      DefaultMessageDelayMin,
 		MessageDelayMax:                      DefaultMessageDelayMax,
@@ -249,20 +190,10 @@ func NewConfig() *Config {
 		VisitorPrefixBitsIPv6:                DefaultVisitorPrefixBitsIPv6, // Default: use /64 for IPv6
 		BehindProxy:                          false,                        // If true, the server will trust the proxy client IP header to determine the client IP address
 		ProxyForwardedHeader:                 "X-Forwarded-For",            // Default header for reverse proxy client IPs
-		StripeSecretKey:                      "",
-		StripeWebhookKey:                     "",
-		StripePriceCacheDuration:             DefaultStripePriceCacheDuration,
-		BillingContact:                       "",
 		EnableSignup:                         false,
 		EnableLogin:                          false,
 		EnableReservations:                   false,
 		AccessControlAllowOrigin:             "*",
 		Version:                              "",
-		WebPushPrivateKey:                    "",
-		WebPushPublicKey:                     "",
-		WebPushFile:                          "",
-		WebPushEmailAddress:                  "",
-		WebPushExpiryDuration:                DefaultWebPushExpiryDuration,
-		WebPushExpiryWarningDuration:         DefaultWebPushExpiryWarningDuration,
 	}
 }

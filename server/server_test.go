@@ -18,12 +18,9 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/SherClockHolmes/webpush-go"
 	"github.com/stretchr/testify/require"
 	"heckel.io/ntfy/v2/log"
 	"heckel.io/ntfy/v2/util"
@@ -66,65 +63,6 @@ func TestServer_PublishAndPoll(t *testing.T) {
 	require.Equal(t, 2, len(lines))
 	require.Equal(t, "my first message", lines[0])
 	require.Equal(t, "my second  message", lines[1]) // \n -> " "
-}
-
-func TestServer_PublishWithFirebase(t *testing.T) {
-	sender := newTestFirebaseSender(10)
-	s := newTestServer(t, newTestConfig(t))
-	s.firebaseClient = newFirebaseClient(sender, &testAuther{Allow: true})
-
-	response := request(t, s, "PUT", "/mytopic", "my first message", nil)
-	msg1 := toMessage(t, response.Body.String())
-	require.NotEmpty(t, msg1.ID)
-	require.Equal(t, "my first message", msg1.Message)
-
-	time.Sleep(100 * time.Millisecond) // Firebase publishing happens
-	require.Equal(t, 1, len(sender.Messages()))
-	require.Equal(t, "my first message", sender.Messages()[0].Data["message"])
-	require.Equal(t, "my first message", sender.Messages()[0].APNS.Payload.Aps.Alert.Body)
-	require.Equal(t, "my first message", sender.Messages()[0].APNS.Payload.CustomData["message"])
-}
-
-func TestServer_PublishWithoutFirebase(t *testing.T) {
-	sender := newTestFirebaseSender(10)
-	s := newTestServer(t, newTestConfig(t))
-	s.firebaseClient = newFirebaseClient(sender, &testAuther{Allow: true})
-
-	response := request(t, s, "PUT", "/mytopic", "my first message", map[string]string{
-		"firebase": "no",
-	})
-	msg1 := toMessage(t, response.Body.String())
-	require.NotEmpty(t, msg1.ID)
-	require.Equal(t, "my first message", msg1.Message)
-
-	time.Sleep(100 * time.Millisecond) // Firebase publishing happens
-	require.Equal(t, 0, len(sender.Messages()))
-}
-
-func TestServer_PublishWithFirebase_WithoutUsers_AndWithoutPanic(t *testing.T) {
-	// This tests issue #641, which used to panic before the fix
-
-	firebaseKeyFile := filepath.Join(t.TempDir(), "firebase.json")
-	contents := `{
-  "type": "service_account",
-  "project_id": "ntfy-test",
-  "private_key_id": "fsfhskjdfhskdhfskdjfhsdf",
-  "private_key": "lalala",
-  "client_email": "firebase-adminsdk-muv04@ntfy-test.iam.gserviceaccount.com",
-  "client_id": "123123213",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-muv04%40ntfy-test.iam.gserviceaccount.com"
-}
-`
-	require.Nil(t, os.WriteFile(firebaseKeyFile, []byte(contents), 0600))
-	c := newTestConfig(t)
-	c.FirebaseKeyFile = firebaseKeyFile
-	s := newTestServer(t, c)
-
-	response := request(t, s, "PUT", "/mytopic", "my first message", nil)
-	require.Equal(t, "my first message", toMessage(t, response.Body.String()).Message)
 }
 
 func TestServer_SubscribeOpenAndKeepalive(t *testing.T) {
@@ -217,92 +155,6 @@ func TestServer_Publish_Disallowed_Topic(t *testing.T) {
 	rr = request(t, s, "PUT", "/about", "another message", nil)
 	require.Equal(t, 400, rr.Code)
 	require.Equal(t, 40010, toHTTPError(t, rr.Body.String()).Code)
-}
-
-func TestServer_StaticSites(t *testing.T) {
-	s := newTestServer(t, newTestConfig(t))
-
-	rr := request(t, s, "GET", "/", "", nil)
-	require.Equal(t, 200, rr.Code)
-	require.Contains(t, rr.Body.String(), "</html>")
-
-	rr = request(t, s, "HEAD", "/", "", nil)
-	require.Equal(t, 200, rr.Code)
-
-	rr = request(t, s, "OPTIONS", "/", "", nil)
-	require.Equal(t, 200, rr.Code)
-
-	rr = request(t, s, "GET", "/does-not-exist.txt", "", nil)
-	require.Equal(t, 404, rr.Code)
-
-	rr = request(t, s, "GET", "/mytopic", "", nil)
-	require.Equal(t, 200, rr.Code)
-	require.Contains(t, rr.Body.String(), `<meta name="robots" content="noindex, nofollow" />`)
-
-	rr = request(t, s, "GET", "/docs", "", nil)
-	require.Equal(t, 301, rr.Code)
-
-	// Docs test removed, it was failing annoyingly.
-}
-
-func TestServer_WebEnabled(t *testing.T) {
-	conf := newTestConfig(t)
-	conf.WebRoot = "" // Disable web app
-	s := newTestServer(t, conf)
-
-	rr := request(t, s, "GET", "/", "", nil)
-	require.Equal(t, 404, rr.Code)
-
-	rr = request(t, s, "GET", "/config.js", "", nil)
-	require.Equal(t, 404, rr.Code)
-
-	rr = request(t, s, "GET", "/sw.js", "", nil)
-	require.Equal(t, 404, rr.Code)
-
-	rr = request(t, s, "GET", "/app.html", "", nil)
-	require.Equal(t, 404, rr.Code)
-
-	rr = request(t, s, "GET", "/static/css/home.css", "", nil)
-	require.Equal(t, 404, rr.Code)
-
-	conf2 := newTestConfig(t)
-	conf2.WebRoot = "/"
-	s2 := newTestServer(t, conf2)
-
-	rr = request(t, s2, "GET", "/", "", nil)
-	require.Equal(t, 200, rr.Code)
-
-	rr = request(t, s2, "GET", "/config.js", "", nil)
-	require.Equal(t, 200, rr.Code)
-
-	rr = request(t, s2, "GET", "/sw.js", "", nil)
-	require.Equal(t, 200, rr.Code)
-
-	rr = request(t, s2, "GET", "/app.html", "", nil)
-	require.Equal(t, 200, rr.Code)
-}
-
-func TestServer_WebPushEnabled(t *testing.T) {
-	conf := newTestConfig(t)
-	conf.WebRoot = "" // Disable web app
-	s := newTestServer(t, conf)
-
-	rr := request(t, s, "GET", "/manifest.webmanifest", "", nil)
-	require.Equal(t, 404, rr.Code)
-
-	conf2 := newTestConfig(t)
-	s2 := newTestServer(t, conf2)
-
-	rr = request(t, s2, "GET", "/manifest.webmanifest", "", nil)
-	require.Equal(t, 404, rr.Code)
-
-	conf3 := newTestConfigWithWebPush(t)
-	s3 := newTestServer(t, conf3)
-
-	rr = request(t, s3, "GET", "/manifest.webmanifest", "", nil)
-	require.Equal(t, 200, rr.Code)
-	require.Equal(t, "application/manifest+json", rr.Header().Get("Content-Type"))
-
 }
 
 func TestServer_PublishLargeMessage(t *testing.T) {
@@ -698,7 +550,6 @@ func TestServer_PublishMessageInHeaderWithNewlines(t *testing.T) {
 
 func TestServer_PublishInvalidTopic(t *testing.T) {
 	s := newTestServer(t, newTestConfig(t))
-	s.smtpSender = &testMailer{}
 	response := request(t, s, "PUT", "/docs", "fail", nil)
 	require.Equal(t, 40010, toHTTPError(t, response.Body.String()).Code)
 }
@@ -1062,51 +913,6 @@ func TestServer_StatsResetter(t *testing.T) {
 	require.Equal(t, int64(0), account.Stats.Messages)
 }
 
-func TestServer_StatsResetter_MessageLimiter_EmailsLimiter(t *testing.T) {
-	// This tests that the messageLimiter (the only fixed limiter) and the emailsLimiter (token bucket)
-	// is reset by the stats resetter
-
-	c := newTestConfigWithAuthFile(t)
-	s := newTestServer(t, c)
-	s.smtpSender = &testMailer{}
-
-	// Publish some messages, and check stats
-	for i := 0; i < 3; i++ {
-		response := request(t, s, "PUT", "/mytopic", "test", nil)
-		require.Equal(t, 200, response.Code)
-	}
-	response := request(t, s, "PUT", "/mytopic", "test", map[string]string{
-		"Email": "test@email.com",
-	})
-	require.Equal(t, 200, response.Code)
-
-	rr := request(t, s, "GET", "/v1/account", "", nil)
-	require.Equal(t, 200, rr.Code)
-	account, err := util.UnmarshalJSON[apiAccountResponse](io.NopCloser(rr.Body))
-	require.Nil(t, err)
-	require.Equal(t, int64(4), account.Stats.Messages)
-	require.Equal(t, int64(1), account.Stats.Emails)
-	v := s.visitor(netip.MustParseAddr("9.9.9.9"), nil)
-	require.Equal(t, int64(4), v.Stats().Messages)
-	require.Equal(t, int64(4), v.messagesLimiter.Value())
-	require.Equal(t, int64(1), v.Stats().Emails)
-	require.Equal(t, int64(1), v.emailsLimiter.Value())
-
-	// Reset stats and check again
-	s.resetStats()
-	rr = request(t, s, "GET", "/v1/account", "", nil)
-	require.Equal(t, 200, rr.Code)
-	account, err = util.UnmarshalJSON[apiAccountResponse](io.NopCloser(rr.Body))
-	require.Nil(t, err)
-	require.Equal(t, int64(0), account.Stats.Messages)
-	require.Equal(t, int64(0), account.Stats.Emails)
-	v = s.visitor(netip.MustParseAddr("9.9.9.9"), nil)
-	require.Equal(t, int64(0), v.Stats().Messages)
-	require.Equal(t, int64(0), v.messagesLimiter.Value())
-	require.Equal(t, int64(0), v.Stats().Emails)
-	require.Equal(t, int64(0), v.emailsLimiter.Value())
-}
-
 func TestServer_DailyMessageQuotaFromDatabase(t *testing.T) {
 	t.Parallel()
 
@@ -1146,28 +952,6 @@ func TestServer_DailyMessageQuotaFromDatabase(t *testing.T) {
 	require.Equal(t, int64(123456), v.messagesLimiter.Value())
 	require.Equal(t, int64(999), v.Stats().Emails)
 	require.Equal(t, int64(999), v.emailsLimiter.Value())
-}
-
-type testMailer struct {
-	count int
-	mu    sync.Mutex
-}
-
-func (t *testMailer) Send(v *visitor, m *message, to string) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.count++
-	return nil
-}
-
-func (t *testMailer) Counts() (total int64, success int64, failure int64) {
-	return 0, 0, 0
-}
-
-func (t *testMailer) Count() int {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.count
 }
 
 func TestServer_PublishTooManyRequests_Defaults(t *testing.T) {
@@ -1276,81 +1060,6 @@ func TestServer_PublishTooManyRequests_ShortReplenish(t *testing.T) {
 	time.Sleep(1020 * time.Millisecond)
 	response = request(t, s, "PUT", "/mytopic", "message", nil)
 	require.Equal(t, 200, response.Code)
-}
-
-func TestServer_PublishTooManyEmails_Defaults(t *testing.T) {
-	s := newTestServer(t, newTestConfig(t))
-	s.smtpSender = &testMailer{}
-	for i := 0; i < 16; i++ {
-		response := request(t, s, "PUT", "/mytopic", fmt.Sprintf("message %d", i), map[string]string{
-			"E-Mail": "test@example.com",
-		})
-		require.Equal(t, 200, response.Code)
-	}
-	response := request(t, s, "PUT", "/mytopic", "one too many", map[string]string{
-		"E-Mail": "test@example.com",
-	})
-	require.Equal(t, 429, response.Code)
-}
-
-func TestServer_PublishTooManyEmails_Replenish(t *testing.T) {
-	t.Parallel()
-	c := newTestConfig(t)
-	c.VisitorEmailLimitReplenish = 500 * time.Millisecond
-	s := newTestServer(t, c)
-	s.smtpSender = &testMailer{}
-	for i := 0; i < 16; i++ {
-		response := request(t, s, "PUT", "/mytopic", fmt.Sprintf("message %d", i), map[string]string{
-			"E-Mail": "test@example.com",
-		})
-		require.Equal(t, 200, response.Code)
-	}
-	response := request(t, s, "PUT", "/mytopic", "one too many", map[string]string{
-		"E-Mail": "test@example.com",
-	})
-	require.Equal(t, 429, response.Code)
-
-	time.Sleep(510 * time.Millisecond)
-	response = request(t, s, "PUT", "/mytopic", "this should be okay again too many", map[string]string{
-		"E-Mail": "test@example.com",
-	})
-	require.Equal(t, 200, response.Code)
-
-	response = request(t, s, "PUT", "/mytopic", "and bad again", map[string]string{
-		"E-Mail": "test@example.com",
-	})
-	require.Equal(t, 429, response.Code)
-}
-
-func TestServer_PublishDelayedEmail_Fail(t *testing.T) {
-	s := newTestServer(t, newTestConfig(t))
-	s.smtpSender = &testMailer{}
-	response := request(t, s, "PUT", "/mytopic", "fail", map[string]string{
-		"E-Mail": "test@example.com",
-		"Delay":  "20 min",
-	})
-	require.Equal(t, 40003, toHTTPError(t, response.Body.String()).Code)
-}
-
-func TestServer_PublishDelayedCall_Fail(t *testing.T) {
-	c := newTestConfigWithAuthFile(t)
-	c.TwilioAccount = "AC1234567890"
-	c.TwilioAuthToken = "AAEAA1234567890"
-	c.TwilioPhoneNumber = "+1234567890"
-	s := newTestServer(t, c)
-	response := request(t, s, "PUT", "/mytopic", "fail", map[string]string{
-		"Call":  "yes",
-		"Delay": "20 min",
-	})
-	require.Equal(t, 40037, toHTTPError(t, response.Body.String()).Code)
-}
-
-func TestServer_PublishEmailNoMailer_Fail(t *testing.T) {
-	s := newTestServer(t, newTestConfig(t))
-	response := request(t, s, "PUT", "/mytopic", "fail", map[string]string{
-		"E-Mail": "test@example.com",
-	})
-	require.Equal(t, 400, response.Code)
 }
 
 func TestServer_PublishAndExpungeTopicAfter16Hours(t *testing.T) {
@@ -1707,22 +1416,6 @@ func TestServer_PublishAsJSON_RateLimit_MessageDailyLimit(t *testing.T) {
 	require.Equal(t, 42908, toHTTPError(t, response.Body.String()).Code)
 }
 
-func TestServer_PublishAsJSON_WithEmail(t *testing.T) {
-	t.Parallel()
-	mailer := &testMailer{}
-	s := newTestServer(t, newTestConfig(t))
-	s.smtpSender = mailer
-	body := `{"topic":"mytopic","message":"A message","email":"phil@example.com"}`
-	response := request(t, s, "PUT", "/", body, nil)
-	require.Equal(t, 200, response.Code)
-	time.Sleep(100 * time.Millisecond) // E-Mail publishing happens in a Go routine
-
-	m := toMessage(t, response.Body.String())
-	require.Equal(t, "mytopic", m.Topic)
-	require.Equal(t, "A message", m.Message)
-	require.Equal(t, 1, mailer.Count())
-}
-
 func TestServer_PublishAsJSON_WithActions(t *testing.T) {
 	s := newTestServer(t, newTestConfig(t))
 	body := `{
@@ -1770,21 +1463,6 @@ func TestServer_PublishAsJSON_NoCache(t *testing.T) {
 	response = request(t, s, "GET", "/mytopic/json?poll=1", "", nil)
 	messages := toMessages(t, response.Body.String())
 	require.Empty(t, messages)
-}
-
-func TestServer_PublishAsJSON_WithoutFirebase(t *testing.T) {
-	sender := newTestFirebaseSender(10)
-	s := newTestServer(t, newTestConfig(t))
-	s.firebaseClient = newFirebaseClient(sender, &testAuther{Allow: true})
-
-	body := `{"topic":"mytopic","message": "my first message","firebase":"no"}`
-	response := request(t, s, "PUT", "/", body, nil)
-	msg1 := toMessage(t, response.Body.String())
-	require.NotEmpty(t, msg1.ID)
-	require.Equal(t, "my first message", msg1.Message)
-
-	time.Sleep(100 * time.Millisecond) // Firebase publishing happens
-	require.Equal(t, 0, len(sender.Messages()))
 }
 
 func TestServer_PublishAsJSON_Invalid(t *testing.T) {
@@ -2733,92 +2411,6 @@ func TestServer_PublishWithUTF8MimeHeader(t *testing.T) {
 	require.Equal(t, "https://💩.la", m.Actions[1].URL)
 }
 
-func TestServer_UpstreamBaseURL_Success(t *testing.T) {
-	t.Parallel()
-	var pollID atomic.Pointer[string]
-	upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		require.Nil(t, err)
-		require.Equal(t, "/87c9cddf7b0105f5fe849bf084c6e600be0fde99be3223335199b4965bd7b735", r.URL.Path)
-		require.Equal(t, "", string(body))
-		require.NotEmpty(t, r.Header.Get("X-Poll-ID"))
-		pollID.Store(util.String(r.Header.Get("X-Poll-ID")))
-	}))
-	defer upstreamServer.Close()
-
-	c := newTestConfigWithAuthFile(t)
-	c.BaseURL = "http://myserver.internal"
-	c.UpstreamBaseURL = upstreamServer.URL
-	s := newTestServer(t, c)
-
-	// Send message, and wait for upstream server to receive it
-	response := request(t, s, "PUT", "/mytopic", `hi there`, nil)
-	require.Equal(t, 200, response.Code)
-	m := toMessage(t, response.Body.String())
-	require.NotEmpty(t, m.ID)
-	require.Equal(t, "hi there", m.Message)
-	waitFor(t, func() bool {
-		pID := pollID.Load()
-		return pID != nil && *pID == m.ID
-	})
-}
-
-func TestServer_UpstreamBaseURL_With_Access_Token_Success(t *testing.T) {
-	t.Parallel()
-	var pollID atomic.Pointer[string]
-	upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		require.Nil(t, err)
-		require.Equal(t, "/a1c72bcb4daf5af54d13ef86aea8f76c11e8b88320d55f1811d5d7b173bcc1df", r.URL.Path)
-		require.Equal(t, "Bearer tk_1234567890", r.Header.Get("Authorization"))
-		require.Equal(t, "", string(body))
-		require.NotEmpty(t, r.Header.Get("X-Poll-ID"))
-		pollID.Store(util.String(r.Header.Get("X-Poll-ID")))
-	}))
-	defer upstreamServer.Close()
-
-	c := newTestConfigWithAuthFile(t)
-	c.BaseURL = "http://myserver.internal"
-	c.UpstreamBaseURL = upstreamServer.URL
-	c.UpstreamAccessToken = "tk_1234567890"
-	s := newTestServer(t, c)
-
-	// Send message, and wait for upstream server to receive it
-	response := request(t, s, "PUT", "/mytopic1", `hi there`, nil)
-	require.Equal(t, 200, response.Code)
-	m := toMessage(t, response.Body.String())
-	require.NotEmpty(t, m.ID)
-	require.Equal(t, "hi there", m.Message)
-	waitFor(t, func() bool {
-		pID := pollID.Load()
-		return pID != nil && *pID == m.ID
-	})
-}
-
-func TestServer_UpstreamBaseURL_DoNotForwardUnifiedPush(t *testing.T) {
-	t.Parallel()
-	upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Fatal("UnifiedPush messages should not be forwarded")
-	}))
-	defer upstreamServer.Close()
-
-	c := newTestConfigWithAuthFile(t)
-	c.BaseURL = "http://myserver.internal"
-	c.UpstreamBaseURL = upstreamServer.URL
-	s := newTestServer(t, c)
-
-	// Send UP message, this should not forward to upstream server
-	response := request(t, s, "PUT", "/mytopic?up=1", `hi there`, nil)
-	require.Equal(t, 200, response.Code)
-	m := toMessage(t, response.Body.String())
-	require.NotEmpty(t, m.ID)
-	require.Equal(t, "hi there", m.Message)
-
-	// Forwarding is done asynchronously, so wait a bit.
-	// This ensures that the t.Fatal above is actually not triggered.
-	time.Sleep(500 * time.Millisecond)
-}
-
 func TestServer_MessageTemplate(t *testing.T) {
 	t.Parallel()
 	s := newTestServer(t, newTestConfig(t))
@@ -3132,53 +2724,6 @@ var (
 	githubIssueOpenedJSON string
 )
 
-func TestServer_MessageTemplate_FromNamedTemplate_GitHubCommentCreated(t *testing.T) {
-	t.Parallel()
-	s := newTestServer(t, newTestConfig(t))
-	response := request(t, s, "POST", "/mytopic?template=github", githubCommentCreatedJSON, nil)
-	require.Equal(t, 200, response.Code)
-	m := toMessage(t, response.Body.String())
-	require.Equal(t, "💬 New comment on issue #1389 instant alerts without Pull to refresh", m.Title)
-	require.Equal(t, `Commenter: https://github.com/wunter8
-Repository: https://github.com/binwiederhier/ntfy
-Comment link: https://github.com/binwiederhier/ntfy/issues/1389#issuecomment-3078214289
-
-Comment:
-These are the things you need to do to get iOS push notifications to work:
-1. open a browser to the web app of your ntfy instance and copy the URL (including "http://" or "https://", your domain or IP address, and any ports, and excluding any trailing slashes)
-2. put the URL you copied in the ntfy `+"`"+`base-url`+"`"+` config in server.yml or NTFY_BASE_URL in env variables
-3. put the URL you copied in the default server URL setting in the iOS ntfy app
-4. set `+"`"+`upstream-base-url`+"`"+` in server.yml or NTFY_UPSTREAM_BASE_URL in env variables to "https://ntfy.sh" (without a trailing slash)`, m.Message)
-}
-
-func TestServer_MessageTemplate_FromNamedTemplate_GitHubIssueOpened(t *testing.T) {
-	t.Parallel()
-	s := newTestServer(t, newTestConfig(t))
-	response := request(t, s, "POST", "/mytopic?template=github", githubIssueOpenedJSON, nil)
-	require.Equal(t, 200, response.Code)
-	m := toMessage(t, response.Body.String())
-	require.Equal(t, "🐛 Issue opened: #1391 http 500 error (ntfy error 50001)", m.Title)
-	require.Equal(t, `Opened by: https://github.com/TheUser-dev
-Repository: https://github.com/binwiederhier/ntfy
-Issue link: https://github.com/binwiederhier/ntfy/issues/1391
-Labels: 🪲 bug 
-
-Description:
-:lady_beetle: **Describe the bug**
-When sending a notification (especially when it happens with multiple requests) this error occurs
-
-:computer: **Components impacted**
-ntfy server 2.13.0 in docker, debian 12 arm64
-
-:bulb: **Screenshots and/or logs**
-`+"```"+`
-closed with HTTP 500 (ntfy error 50001) (error=database table is locked, http_method=POST, http_path=/_matrix/push/v1/notify, tag=http, visitor_auth_limiter_limit=0.016666666666666666, visitor_auth_limiter_tokens=30, visitor_id=ip:<edited>, visitor_ip=<edited>, visitor_messages=448, visitor_messages_limit=17280, visitor_messages_remaining=16832, visitor_request_limiter_limit=0.2, visitor_request_limiter_tokens=57.049697891799994, visitor_seen=2025-07-16T15:06:35.429Z)
-`+"```"+`
-
-:crystal_ball: **Additional context**
-Looks like this has already been fixed by #498, regression?`, m.Message)
-}
-
 func TestServer_MessageTemplate_FromNamedTemplate_GitHubIssueOpened_OverrideConfigTemplate(t *testing.T) {
 	t.Parallel()
 	c := newTestConfig(t)
@@ -3254,17 +2799,6 @@ func configureAuth(t *testing.T, conf *Config) *Config {
 func newTestConfigWithAuthFile(t *testing.T) *Config {
 	conf := newTestConfig(t)
 	conf = configureAuth(t, conf)
-	return conf
-}
-
-func newTestConfigWithWebPush(t *testing.T) *Config {
-	conf := newTestConfig(t)
-	privateKey, publicKey, err := webpush.GenerateVAPIDKeys()
-	require.Nil(t, err)
-	conf.WebPushFile = filepath.Join(t.TempDir(), "webpush.db")
-	conf.WebPushEmailAddress = "testing@example.com"
-	conf.WebPushPrivateKey = privateKey
-	conf.WebPushPublicKey = publicKey
 	return conf
 }
 

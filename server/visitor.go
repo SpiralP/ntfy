@@ -160,16 +160,6 @@ func (v *visitor) contextNoLock() log.Context {
 		"visitor_request_limiter_limit":  v.requestLimiter.Limit(),
 		"visitor_request_limiter_tokens": v.requestLimiter.Tokens(),
 	}
-	if v.config.SMTPSenderFrom != "" {
-		fields["visitor_emails"] = info.Stats.Emails
-		fields["visitor_emails_limit"] = info.Limits.EmailLimit
-		fields["visitor_emails_remaining"] = info.Stats.EmailsRemaining
-	}
-	if v.config.TwilioAccount != "" {
-		fields["visitor_calls"] = info.Stats.Calls
-		fields["visitor_calls_limit"] = info.Limits.CallLimit
-		fields["visitor_calls_remaining"] = info.Stats.CallsRemaining
-	}
 	if v.authLimiter != nil {
 		fields["visitor_auth_limiter_limit"] = v.authLimiter.Limit()
 		fields["visitor_auth_limiter_tokens"] = v.authLimiter.Tokens()
@@ -181,12 +171,6 @@ func (v *visitor) contextNoLock() log.Context {
 			for field, value := range v.user.Tier.Context() {
 				fields[field] = value
 			}
-		}
-		if v.user.Billing.StripeCustomerID != "" {
-			fields["stripe_customer_id"] = v.user.Billing.StripeCustomerID
-		}
-		if v.user.Billing.StripeSubscriptionID != "" {
-			fields["stripe_subscription_id"] = v.user.Billing.StripeSubscriptionID
 		}
 	}
 	return fields
@@ -207,18 +191,6 @@ func (v *visitor) RequestAllowed() bool {
 	v.mu.RLock() // limiters could be replaced!
 	defer v.mu.RUnlock()
 	return v.requestLimiter.Allow()
-}
-
-func (v *visitor) FirebaseAllowed() bool {
-	v.mu.RLock()
-	defer v.mu.RUnlock()
-	return !time.Now().Before(v.firebase)
-}
-
-func (v *visitor) FirebaseTemporarilyDeny() {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	v.firebase = time.Now().Add(v.config.FirebaseQuotaExceededPenaltyDuration)
 }
 
 func (v *visitor) MessageAllowed() bool {

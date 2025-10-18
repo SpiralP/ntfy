@@ -368,16 +368,6 @@ type apiAccountTokenResponse struct {
 	Provisioned bool   `json:"provisioned,omitempty"` // True if this token was provisioned by the server config
 }
 
-type apiAccountPhoneNumberVerifyRequest struct {
-	Number  string `json:"number"`
-	Channel string `json:"channel"`
-}
-
-type apiAccountPhoneNumberAddRequest struct {
-	Number string `json:"number"`
-	Code   string `json:"code"` // Only set when adding a phone number
-}
-
 type apiAccountTier struct {
 	Code string `json:"code"`
 	Name string `json:"name"`
@@ -460,31 +450,6 @@ type apiConfigResponse struct {
 	DisallowedTopics   []string `json:"disallowed_topics"`
 }
 
-type apiAccountBillingPrices struct {
-	Month int64 `json:"month"`
-	Year  int64 `json:"year"`
-}
-
-type apiAccountBillingTier struct {
-	Code   string                   `json:"code,omitempty"`
-	Name   string                   `json:"name,omitempty"`
-	Prices *apiAccountBillingPrices `json:"prices,omitempty"`
-	Limits *apiAccountLimits        `json:"limits"`
-}
-
-type apiAccountBillingSubscriptionCreateResponse struct {
-	RedirectURL string `json:"redirect_url"`
-}
-
-type apiAccountBillingSubscriptionChangeRequest struct {
-	Tier     string `json:"tier"`
-	Interval string `json:"interval"`
-}
-
-type apiAccountBillingPortalRedirectResponse struct {
-	RedirectURL string `json:"redirect_url"`
-}
-
 type apiAccountSyncTopicResponse struct {
 	Event string `json:"event"`
 }
@@ -497,99 +462,4 @@ func newSuccessResponse() *apiSuccessResponse {
 	return &apiSuccessResponse{
 		Success: true,
 	}
-}
-
-type apiStripeSubscriptionUpdatedEvent struct {
-	ID               string `json:"id"`
-	Customer         string `json:"customer"`
-	Status           string `json:"status"`
-	CurrentPeriodEnd int64  `json:"current_period_end"`
-	CancelAt         int64  `json:"cancel_at"`
-	Items            *struct {
-		Data []*struct {
-			Price *struct {
-				ID        string `json:"id"`
-				Recurring *struct {
-					Interval string `json:"interval"`
-				} `json:"recurring"`
-			} `json:"price"`
-		} `json:"data"`
-	} `json:"items"`
-}
-
-type apiStripeSubscriptionDeletedEvent struct {
-	ID       string `json:"id"`
-	Customer string `json:"customer"`
-}
-
-type apiWebPushUpdateSubscriptionRequest struct {
-	Endpoint string   `json:"endpoint"`
-	Auth     string   `json:"auth"`
-	P256dh   string   `json:"p256dh"`
-	Topics   []string `json:"topics"`
-}
-
-// List of possible Web Push events (see sw.js)
-const (
-	webPushMessageEvent  = "message"
-	webPushExpiringEvent = "subscription_expiring"
-)
-
-type webPushPayload struct {
-	Event          string   `json:"event"`
-	SubscriptionID string   `json:"subscription_id"`
-	Message        *message `json:"message"`
-}
-
-func newWebPushPayload(subscriptionID string, message *message) *webPushPayload {
-	return &webPushPayload{
-		Event:          webPushMessageEvent,
-		SubscriptionID: subscriptionID,
-		Message:        message,
-	}
-}
-
-type webPushControlMessagePayload struct {
-	Event string `json:"event"`
-}
-
-func newWebPushSubscriptionExpiringPayload() *webPushControlMessagePayload {
-	return &webPushControlMessagePayload{
-		Event: webPushExpiringEvent,
-	}
-}
-
-type webPushSubscription struct {
-	ID       string
-	Endpoint string
-	Auth     string
-	P256dh   string
-	UserID   string
-}
-
-func (w *webPushSubscription) Context() log.Context {
-	return map[string]any{
-		"web_push_subscription_id":       w.ID,
-		"web_push_subscription_user_id":  w.UserID,
-		"web_push_subscription_endpoint": w.Endpoint,
-	}
-}
-
-// https://developer.mozilla.org/en-US/docs/Web/Manifest
-type webManifestResponse struct {
-	Name            string             `json:"name"`
-	Description     string             `json:"description"`
-	ShortName       string             `json:"short_name"`
-	Scope           string             `json:"scope"`
-	StartURL        string             `json:"start_url"`
-	Display         string             `json:"display"`
-	BackgroundColor string             `json:"background_color"`
-	ThemeColor      string             `json:"theme_color"`
-	Icons           []*webManifestIcon `json:"icons"`
-}
-
-type webManifestIcon struct {
-	SRC   string `json:"src"`
-	Sizes string `json:"sizes"`
-	Type  string `json:"type"`
 }
